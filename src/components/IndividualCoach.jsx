@@ -99,7 +99,7 @@ const IndividualCoach = ({ forceUpdateKey }) => {
               <div className="flex items-start gap-3">
                 <CheckCircleIcon className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
                 <div>
-                  <h4 className="font-bold text-white">55 Minutos</h4>
+                  <h4 className="font-bold text-white">80 Minutos</h4>
                   <p className="text-sm text-gray-400">Duração de cada sessão.</p>
                 </div>
               </div>
