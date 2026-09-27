@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../ui/Card';
 import { SectionTitle } from '../ui/SectionTitle';
 import { CtaButton } from '../ui/CtaButton';
@@ -11,6 +11,8 @@ const LIGAS = initialLeagueData;
 const DIVISOES = initialDivisionData;
 const LIGAS_OPTIONS = LIGAS.map((l) => ({ value: l.value, label: l.label }));
 const DIVISOES_OPTIONS = DIVISOES.map((d) => ({ value: d.value, label: d.label }));
+const MIN_DIVISION_ADVANCE = 8;
+const MINIMUM_ORDER_MESSAGE = 'A contratação mínima é de 8 divisões (2 elos completos). Exemplo: Prata IV → Platina IV.';
 const PLANOS_OPTIONS = [
   { value: 'basico', label: 'Básico' },
   { value: 'personalizado', label: 'Personalizado (+30%)' },
@@ -18,26 +20,34 @@ const PLANOS_OPTIONS = [
 
 const getRankValue = (liga, divisao) => {
   const ligaData = LIGAS.find((l) => l.value === liga);
-  if (!ligaData) return 0;
+  if (!ligaData) return Number.NaN;
   if (['mestre', 'graomestre'].includes(liga)) return ligaData.rank;
   const divisaoData = DIVISOES.find((d) => d.value === divisao);
-  if (!divisaoData) return ligaData.rank;
+  if (!divisaoData) return Number.NaN;
   return ligaData.rank + divisaoData.rank;
 };
 
 const getLabel = (arr, value) => arr.find((item) => item.value === value)?.label || '';
+const DESTINOS = LIGAS.flatMap((liga) => (
+  ['mestre', 'graomestre'].includes(liga.value)
+    ? [{ liga: liga.value, divisao: '4', rank: liga.rank }]
+    : DIVISOES.map((divisao) => ({
+      liga: liga.value,
+      divisao: divisao.value,
+      rank: liga.rank + divisao.rank,
+    }))
+));
+const MAX_RANK = Math.max(...DESTINOS.map((destino) => destino.rank));
+const getMinimumDestinationRank = (currentRank) => (
+  currentRank + (MAX_RANK - currentRank < MIN_DIVISION_ADVANCE ? 1 : MIN_DIVISION_ADVANCE)
+);
 
 function EloCalculator({ forceUpdateKey }) {
   const [ligaAtual, setLigaAtual] = useState('prata');
   const [divisaoAtual, setDivisaoAtual] = useState('4');
-  const [ligaDesejada, setLigaDesejada] = useState('prata');
-  const [divisaoDesejada, setDivisaoDesejada] = useState('3');
+  const [ligaDesejada, setLigaDesejada] = useState('platina');
+  const [divisaoDesejada, setDivisaoDesejada] = useState('4');
   const [plano, setPlano] = useState('basico');
-  const [basePrice, setBasePrice] = useState(0);
-  const [finalPrice, setFinalPrice] = useState(0);
-  const [erro, setErro] = useState('');
-  const [whatsAppLink, setWhatsAppLink] = useState('');
-  const [planoForcado, setPlanoForcado] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
@@ -56,6 +66,56 @@ function EloCalculator({ forceUpdateKey }) {
 
   const isDivisaoAtualDisabled = ['mestre', 'graomestre'].includes(ligaAtual);
   const isDivisaoDesejadaDisabled = ['mestre', 'graomestre'].includes(ligaDesejada);
+  const valorAtual = getRankValue(ligaAtual, divisaoAtual);
+  const valorDesejado = getRankValue(ligaDesejada, divisaoDesejada);
+  const rankMinimo = getMinimumDestinationRank(valorAtual);
+  const excecaoElosFinais = Number.isFinite(valorAtual)
+    && valorAtual < MAX_RANK
+    && MAX_RANK - valorAtual < MIN_DIVISION_ADVANCE;
+  const temDestinoValido = DESTINOS.some((destino) => destino.rank >= rankMinimo);
+  const eloRankAtual = LIGAS.find((liga) => liga.value === ligaAtual)?.eloRank || 0;
+  const eloRankDesejado = LIGAS.find((liga) => liga.value === ligaDesejada)?.eloRank || 0;
+  const planoForcado = eloRankDesejado - eloRankAtual > 2;
+  const planoEfetivo = planoForcado ? 'personalizado' : plano;
+  const erro = !Number.isFinite(valorAtual) || !Number.isFinite(valorDesejado)
+    ? 'Selecione uma liga e uma divisão válidas.'
+    : !temDestinoValido
+    ? 'Não há um destino superior disponível para esta origem.'
+    : valorDesejado <= valorAtual
+    ? 'O destino deve estar acima da sua posição atual.'
+    : valorDesejado < rankMinimo ? MINIMUM_ORDER_MESSAGE : '';
+
+  const ajustarDestino = (novaLigaAtual, novaDivisaoAtual) => {
+    const novoMinimo = getMinimumDestinationRank(getRankValue(novaLigaAtual, novaDivisaoAtual));
+    if (valorDesejado >= novoMinimo) return;
+    const primeiroDestino = DESTINOS.find((destino) => destino.rank >= novoMinimo);
+    if (primeiroDestino) {
+      setLigaDesejada(primeiroDestino.liga);
+      setDivisaoDesejada(primeiroDestino.divisao);
+    }
+  };
+
+  const handleLigaAtualChange = (event) => {
+    const novaLiga = event.target.value;
+    setLigaAtual(novaLiga);
+    ajustarDestino(novaLiga, divisaoAtual);
+  };
+
+  const handleDivisaoAtualChange = (event) => {
+    const novaDivisao = event.target.value;
+    setDivisaoAtual(novaDivisao);
+    ajustarDestino(ligaAtual, novaDivisao);
+  };
+
+  const handleLigaDesejadaChange = (event) => {
+    const novaLiga = event.target.value;
+    const primeiroDestino = DESTINOS.find((destino) => destino.liga === novaLiga && destino.rank >= rankMinimo);
+    if (!primeiroDestino) return;
+    setLigaDesejada(novaLiga);
+    if (getRankValue(novaLiga, divisaoDesejada) < rankMinimo) {
+      setDivisaoDesejada(primeiroDestino.divisao);
+    }
+  };
 
   const handleApplyCoupon = async () => {
     if (!couponCode) return;
@@ -75,31 +135,10 @@ function EloCalculator({ forceUpdateKey }) {
     setCouponCode('');
   };
 
-  useEffect(() => {
-    if (loading || priceMap.size === 0) return;
-
-    let valorAtual = getRankValue(ligaAtual, isDivisaoAtualDisabled ? '4' : divisaoAtual);
-    let valorDesejado = getRankValue(ligaDesejada, isDivisaoDesejadaDisabled ? '4' : divisaoDesejada);
-
-    const eloRankAtual = LIGAS.find((l) => l.value === ligaAtual)?.eloRank || 0;
-    const eloRankDesejado = LIGAS.find((l) => l.value === ligaDesejada)?.eloRank || 0;
-    const eloDifference = eloRankDesejado - eloRankAtual;
-
-    let isPlanoForcado = false;
-    if (eloDifference > 2) {
-      isPlanoForcado = true;
-      setPlano('personalizado');
+  const { basePrice, finalPrice, whatsAppLink } = useMemo(() => {
+    if (loading || priceMap.size === 0 || erro) {
+      return { basePrice: 0, finalPrice: 0, whatsAppLink: undefined };
     }
-    setPlanoForcado(isPlanoForcado);
-
-    if (valorDesejado <= valorAtual) {
-      setErro('O elo desejado deve ser superior ao atual.');
-      setBasePrice(0);
-      setFinalPrice(0);
-      setWhatsAppLink('#');
-      return;
-    }
-    setErro('');
 
     let calculatedBase = 0;
     for (let i = valorAtual; i < valorDesejado; i++) {
@@ -122,37 +161,44 @@ function EloCalculator({ forceUpdateKey }) {
       else if (currentLiga === 'ferro') calculatedBase += (priceMap.get('ferro') || 0);
     }
 
-    const priceWithPlan = plano === 'personalizado' ? calculatedBase * 1.3 : calculatedBase;
-    setBasePrice(priceWithPlan);
+    const priceWithPlan = planoEfetivo === 'personalizado' ? calculatedBase * 1.3 : calculatedBase;
 
     const discount = appliedCoupon ? (priceWithPlan * (appliedCoupon.discount_percent / 100)) : 0;
     const total = priceWithPlan - discount;
-    setFinalPrice(total);
 
     const formatPrice = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const ligaAtualLabel = getLabel(LIGAS, ligaAtual);
     const divisaoAtualLabel = isDivisaoAtualDisabled ? '' : getLabel(DIVISOES, divisaoAtual);
     const ligaDesejadaLabel = getLabel(LIGAS, ligaDesejada);
     const divisaoDesejadaLabel = isDivisaoDesejadaDisabled ? '' : getLabel(DIVISOES, divisaoDesejada);
-    const planoLabel = plano === 'basico' ? 'Básico' : 'Personalizado';
+    const planoLabel = planoEfetivo === 'basico' ? 'Básico' : 'Personalizado';
     const cupomMsg = appliedCoupon ? `\n🎟️ Cupom: ${appliedCoupon.code} (${appliedCoupon.discount_percent}% OFF)` : '';
     
-    const msg = `Olá! Gostaria de contratar o Elo Job:\n\n🏁 *De:* ${ligaAtualLabel} ${divisaoAtualLabel}\n🚀 *Para:* ${ligaDesejadaLabel} ${divisaoDesejadaLabel}\n💎 *Plano:* ${planoLabel}${cupomMsg}\n💰 *Valor:* ${formatPrice(total)}`;
+    const msg = `Olá! Gostaria de contratar o Acompanhamento:\n\n🏁 *De:* ${ligaAtualLabel} ${divisaoAtualLabel}\n🚀 *Para:* ${ligaDesejadaLabel} ${divisaoDesejadaLabel}\n💎 *Plano:* ${planoLabel}${cupomMsg}\n💰 *Valor:* ${formatPrice(total)}`;
     
-    setWhatsAppLink(`https://wa.me/5519986062412?text=${encodeURIComponent(msg)}`);
+    return {
+      basePrice: priceWithPlan,
+      finalPrice: total,
+      whatsAppLink: `https://wa.me/5519986062412?text=${encodeURIComponent(msg)}`,
+    };
 
-  }, [ligaAtual, divisaoAtual, ligaDesejada, divisaoDesejada, plano, isDivisaoAtualDisabled, isDivisaoDesejadaDisabled, priceMap, loading, appliedCoupon]);
+  }, [ligaAtual, divisaoAtual, ligaDesejada, divisaoDesejada, valorAtual, valorDesejado, planoEfetivo, isDivisaoAtualDisabled, isDivisaoDesejadaDisabled, priceMap, loading, appliedCoupon, erro]);
 
   const formatPrice = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const imgAtualSrc = `/${LIGAS.find((l) => l.value === ligaAtual)?.img}`;
   const imgDesejadaSrc = `/${LIGAS.find((l) => l.value === ligaDesejada)?.img}`;
 
   return (
-    <section id="calculadora" className="relative overflow-hidden bg-gray-950 pt-24 pb-24 md:pt-32 md:pb-32">
+    <section id="calculadora" className="relative overflow-hidden bg-black pt-24 pb-24 md:pt-32 md:pb-32">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-red-600/10 blur-[120px] rounded-full pointer-events-none opacity-30 mix-blend-screen" />
       
       <div className="container relative mx-auto max-w-7xl px-6">
-        <SectionTitle title="CALCULADORA DE ELO" subtitle="Simule o valor para atingir o elo desejado e contrate agora." />
+        <SectionTitle title="ACOMPANHAMENTO" subtitle="Simule o valor para atingir o elo desejado e contrate agora." />
+        <p className="mt-4 text-center text-sm text-gray-400">
+          {excecaoElosFinais
+            ? 'Elos finais: como restam menos de 8 divisões até Grão-Mestre, você pode contratar qualquer avanço acima da sua posição atual.'
+            : 'Contratação mínima: 8 divisões (2 elos completos). Ex.: Prata IV → Platina IV.'}
+        </p>
         
         <div className="mt-20 grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card className="lg:col-span-2 border-gray-800 bg-black/40">
@@ -164,8 +210,8 @@ function EloCalculator({ forceUpdateKey }) {
                 </div>
                 <img src={imgAtualSrc} alt="Atual" className="w-24 h-24 mx-auto mb-6 object-contain drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" />
                 <div className="space-y-3">
-                  <FormSelect id="ligaAtual" label="Liga" value={ligaAtual} onChange={(e) => setLigaAtual(e.target.value)} options={LIGAS_OPTIONS.filter(l => l.value !== 'graomestre')} />
-                  <FormSelect id="divisaoAtual" label="Divisão" value={divisaoAtual} onChange={(e) => setDivisaoAtual(e.target.value)} options={DIVISOES_OPTIONS} disabled={isDivisaoAtualDisabled} />
+                  <FormSelect id="ligaAtual" label="Liga" value={ligaAtual} onChange={handleLigaAtualChange} options={LIGAS_OPTIONS.filter(l => l.value !== 'graomestre')} />
+                  <FormSelect id="divisaoAtual" label="Divisão" value={isDivisaoAtualDisabled ? '' : divisaoAtual} onChange={handleDivisaoAtualChange} options={isDivisaoAtualDisabled ? [{ value: '', label: 'Sem divisões' }] : DIVISOES_OPTIONS} disabled={isDivisaoAtualDisabled} />
                 </div>
               </div>
 
@@ -176,15 +222,15 @@ function EloCalculator({ forceUpdateKey }) {
                 </div>
                 <img src={imgDesejadaSrc} alt="Desejado" className="w-24 h-24 mx-auto mb-6 object-contain drop-shadow-[0_0_15px_rgba(220,38,38,0.3)]" />
                 <div className="space-y-3">
-                  <FormSelect id="ligaDesejada" label="Liga" value={ligaDesejada} onChange={(e) => setLigaDesejada(e.target.value)} options={LIGAS_OPTIONS.filter(l => l.value !== 'ferro')} />
-                  <FormSelect id="divisaoDesejada" label="Divisão" value={divisaoDesejada} onChange={(e) => setDivisaoDesejada(e.target.value)} options={DIVISOES_OPTIONS} disabled={isDivisaoDesejadaDisabled} />
+                  <FormSelect id="ligaDesejada" label="Liga" value={ligaDesejada} onChange={handleLigaDesejadaChange} options={LIGAS_OPTIONS.filter(l => l.value !== 'ferro').map(l => ({ ...l, disabled: !DESTINOS.some(destino => destino.liga === l.value && destino.rank >= rankMinimo) }))} disabled={!temDestinoValido} />
+                  <FormSelect id="divisaoDesejada" label="Divisão" value={isDivisaoDesejadaDisabled ? '' : divisaoDesejada} onChange={(e) => setDivisaoDesejada(e.target.value)} options={isDivisaoDesejadaDisabled ? [{ value: '', label: 'Sem divisões' }] : DIVISOES_OPTIONS.map(d => ({ ...d, disabled: getRankValue(ligaDesejada, d.value) < rankMinimo }))} disabled={isDivisaoDesejadaDisabled || !temDestinoValido} />
                 </div>
               </div>
             </div>
 
             <div className="mt-8 pt-8 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="w-full max-w-sm">
-                <FormSelect id="plano" label="Tipo de Serviço" value={plano} onChange={(e) => setPlano(e.target.value)} options={PLANOS_OPTIONS.map(p => ({ ...p, disabled: p.value === 'basico' && planoForcado }))} />
+                <FormSelect id="plano" label="Tipo de Serviço" value={planoEfetivo} onChange={(e) => setPlano(e.target.value)} options={PLANOS_OPTIONS.map(p => ({ ...p, disabled: p.value === 'basico' && planoForcado }))} />
               </div>
               <img src="/fatal-logo.png" alt="Logo" className="h-8 opacity-20 grayscale" />
             </div>
@@ -264,7 +310,7 @@ function EloCalculator({ forceUpdateKey }) {
                         </div>
                     </div>
 
-                    <CtaButton href={whatsAppLink} variant="primary" className="w-full py-4 shadow-lg shadow-red-900/20 text-base" icon={<WhatsAppIcon />} disabled={!!erro || loading}>
+                    <CtaButton href={whatsAppLink} variant="primary" className="w-full py-4 shadow-lg shadow-red-900/20 text-base" icon={<WhatsAppIcon />} disabled={!whatsAppLink}>
                         CONTRATAR AGORA
                     </CtaButton>
                     <p className="text-center text-[10px] text-gray-600 mt-3 uppercase tracking-wide">Pagamento Seguro via WhatsApp</p>

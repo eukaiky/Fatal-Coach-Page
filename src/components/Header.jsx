@@ -34,8 +34,8 @@ export const Header = ({ onOpenAdmin }) => {
 
   const navLinks = [
     { name: 'MÉTODO', href: '#como-funciona' },
-    { name: 'INDIVIDUAL', href: '#coach-individual' },
     { name: 'ACOMPANHAMENTO', href: '#calculadora' },
+    { name: 'INDIVIDUAL', href: '#coach-individual' },
     { name: 'PLANOS', href: '#planos' },
   ];
 

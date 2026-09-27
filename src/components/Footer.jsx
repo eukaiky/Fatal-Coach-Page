@@ -30,7 +30,7 @@ const Footer = ({ onOpenAdmin }) => {
       className="border-t border-white/5 bg-gray-950 pt-20 pb-10"
     >
       <div className="container mx-auto max-w-7xl px-6">
-        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 md:grid-cols-3">
           <div className="md:col-span-2">
             <a href="#top" className="block">
               <img
@@ -40,7 +40,7 @@ const Footer = ({ onOpenAdmin }) => {
               />
             </a>
             <p className="mt-6 max-w-sm text-sm leading-relaxed text-gray-500">
-              "Tô melado de bosta" <br/>- Fatal 26/11/2025
+              Fatal fullclear CEO.
             </p>
           </div>
 
@@ -59,18 +59,18 @@ const Footer = ({ onOpenAdmin }) => {
               </li>
               <li>
                 <a
-                  href="#coach-individual"
-                  className="text-sm text-gray-500 transition-colors hover:text-red-500"
-                >
-                  Individual
-                </a>
-              </li>
-              <li>
-                <a
                   href="#calculadora"
                   className="text-sm text-gray-500 transition-colors hover:text-red-500"
                 >
                   Acompanhamento
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#coach-individual"
+                  className="text-sm text-gray-500 transition-colors hover:text-red-500"
+                >
+                  Individual
                 </a>
               </li>
               <li>
@@ -85,7 +85,7 @@ const Footer = ({ onOpenAdmin }) => {
           </div>
         </div>
 
-        <div className="mt-20 flex flex-col items-center justify-between border-t border-white/5 pt-8 sm:flex-row text-center sm:text-left">
+        <div className="mt-20 flex flex-col items-center justify-between gap-6 border-t border-white/5 pt-8 lg:flex-row text-center lg:text-left">
           <p 
             className="text-xs text-gray-600 cursor-pointer select-none"
             onClick={handleAdminClick}
@@ -93,20 +93,46 @@ const Footer = ({ onOpenAdmin }) => {
             © {new Date().getFullYear()} Fatal. Todos os direitos reservados.
           </p>
 
-          <div className="mt-4 flex items-center gap-2 text-xs text-gray-600 sm:mt-0">
-            <span>Desenvolvido por</span>
-            <a
-              href="https://www.instagram.com/kaikyrg"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="opacity-70 transition-opacity hover:opacity-100"
-            >
-              <img
-                src="/K.png"
-                alt="K"
-                className="h-5 w-auto"
-              />
-            </a>
+          <div className="flex flex-col items-center gap-3 text-xs lg:items-end">
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 lg:justify-end">
+              <span className="text-gray-500">Desenvolvido por</span>
+              <a
+                href="https://www.instagram.com/orodriguesgeraldo/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram de Kaiky Rodrigues Geraldo"
+                className="font-semibold text-gray-300 transition-colors hover:text-red-500"
+              >
+                Kaiky Rodrigues Geraldo <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+            <nav aria-label="Contato do desenvolvedor" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 lg:justify-end">
+              <a
+                href="mailto:orodriguesgeraldo@gmail.com"
+                aria-label="Enviar email para Kaiky Rodrigues Geraldo"
+                className="text-gray-400 transition-colors hover:text-red-500"
+              >
+                Email
+              </a>
+              <a
+                href="https://wa.me/5535991985814"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="WhatsApp de Kaiky Rodrigues Geraldo"
+                className="text-gray-400 transition-colors hover:text-red-500"
+              >
+                WhatsApp
+              </a>
+              <a
+                href="https://www.instagram.com/orodriguesgeraldo/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram de Kaiky Rodrigues Geraldo"
+                className="text-gray-400 transition-colors hover:text-red-500"
+              >
+                Instagram
+              </a>
+            </nav>
           </div>
         </div>
       </div>

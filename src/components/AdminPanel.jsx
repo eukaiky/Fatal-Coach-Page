@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../ui/Card';
 import { FormInput } from '../ui/FormInput';
 import { CtaButton } from '../ui/CtaButton';
-import { authenticateAdmin } from '../auth/adminAuth';
+import { authenticateAdmin, getAdminSession, logoutAdmin } from '../auth/adminAuth';
 import { fetchEloPrices, saveEloPrices, fetchCoupons, createCoupon, deleteCoupon } from '../data/eloData';
 import { XIcon, CheckCircleIcon } from '../ui/Icons';
 
@@ -14,6 +14,7 @@ export default function AdminPanel({ onClose, onPricesUpdate }) {
   const [senha, setSenha] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   const [prices, setPrices] = useState(new Map());
   const [coupons, setCoupons] = useState([]);
@@ -32,38 +33,63 @@ export default function AdminPanel({ onClose, onPricesUpdate }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (sessionStorage.getItem('fatal_admin_logged') === 'true') {
-      setIsLoggedIn(true);
-      loadData();
-    }
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const priceData = await fetchEloPrices();
     setPrices(priceData);
     const couponData = await fetchCoupons();
     setCoupons(couponData);
     setHasChanges(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const checkSession = async () => {
+      try {
+        const session = await getAdminSession();
+        if (!active) return;
+
+        if (session) {
+          setIsLoggedIn(true);
+          await loadData();
+        }
+      } catch (err) {
+        console.error('Erro ao verificar sessão administrativa:', err);
+      } finally {
+        if (active) setCheckingSession(false);
+      }
+    };
+
+    checkSession();
+    return () => { active = false; };
+  }, [loadData]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (loading || checkingSession) return;
     setLoading(true);
     setError('');
 
-    const result = await authenticateAdmin(login, senha);
+    try {
+      const result = await authenticateAdmin(login, senha);
 
-    if (result.success) {
-      sessionStorage.setItem('fatal_admin_logged', 'true');
-      setIsLoggedIn(true);
-      await loadData();
-    } else {
-      if (result.error === 'login') setError('Usuário incorreto.');
-      else if (result.error === 'password') setError('Senha incorreta.');
-      else setError('Erro ao verificar credenciais.');
+      if (result.success) {
+        setIsLoggedIn(true);
+        setSenha('');
+        await loadData();
+      } else if (result.error === 'unauthorized') {
+        setError('Esta conta não possui acesso administrativo.');
+      } else if (result.error === 'credentials') {
+        setError('Email ou senha incorretos.');
+      } else {
+        setError('Não foi possível acessar o painel.');
+      }
+    } catch (err) {
+      console.error('Erro ao acessar o painel:', err);
+      setError('Não foi possível acessar o painel.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handlePriceChange = (key, valor) => {
@@ -112,11 +138,26 @@ export default function AdminPanel({ onClose, onPricesUpdate }) {
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('fatal_admin_logged');
-    setIsLoggedIn(false);
-    setLogin('');
-    setSenha('');
+  const handleLogout = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const success = await logoutAdmin();
+      if (!success) {
+        window.alert('Não foi possível encerrar a sessão. Tente novamente.');
+        return;
+      }
+      setIsLoggedIn(false);
+      setLogin('');
+      setSenha('');
+      setError('');
+      setPrices(new Map());
+      setCoupons([]);
+      setHasChanges(false);
+      setSuccessMsg('');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderPriceInput = (key, label) => (
@@ -152,14 +193,21 @@ export default function AdminPanel({ onClose, onPricesUpdate }) {
 
             <form onSubmit={handleLogin} className="space-y-6">
               <FormInput 
-                label="Usuário" 
+                id="admin-email"
+                label="Email administrativo"
+                type="email"
+                autoComplete="username"
+                required
                 value={login} 
                 onChange={e => setLogin(e.target.value)} 
-                placeholder="Identificação"
+                placeholder="Seu email de administrador"
               />
               <FormInput 
                 label="Senha" 
                 type="password" 
+                id="admin-password"
+                autoComplete="current-password"
+                required
                 value={senha} 
                 onChange={e => setSenha(e.target.value)} 
                 placeholder="Chave de acesso"
@@ -171,8 +219,8 @@ export default function AdminPanel({ onClose, onPricesUpdate }) {
                 </div>
               )}
 
-              <CtaButton type="submit" className="w-full py-4 text-base shadow-red-900/10" disabled={loading}>
-                {loading ? 'Entrando...' : 'ACESSAR PAINEL'}
+              <CtaButton type="submit" className="w-full py-4 text-base shadow-red-900/10" disabled={loading || checkingSession}>
+                {checkingSession ? 'Verificando sessão...' : loading ? 'Entrando...' : 'ACESSAR PAINEL'}
               </CtaButton>
             </form>
           </Card>
@@ -192,7 +240,7 @@ export default function AdminPanel({ onClose, onPricesUpdate }) {
            <button onClick={onClose} className="text-sm font-bold text-gray-500 hover:text-white transition-colors uppercase tracking-wider">
              Voltar
            </button>
-           <button onClick={handleLogout} className="text-red-500 hover:text-red-400 text-sm font-bold uppercase tracking-wider transition-colors">
+           <button onClick={handleLogout} disabled={loading} className="text-red-500 hover:text-red-400 text-sm font-bold uppercase tracking-wider transition-colors">
              Sair
            </button>
         </div>

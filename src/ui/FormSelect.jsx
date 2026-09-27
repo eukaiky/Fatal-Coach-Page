@@ -22,7 +22,7 @@ export const FormSelect = ({
         className="w-full appearance-none rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-white placeholder-gray-500 capitalize transition-colors focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600/50 disabled:opacity-50"
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
           </option>
         ))}

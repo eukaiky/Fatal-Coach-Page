@@ -61,8 +61,8 @@ export default function App() {
       <Hero />
       <main>
         <HowItWorks />
-        <IndividualCoach forceUpdateKey={updateKey} />
         <EloCalculator forceUpdateKey={updateKey} />
+        <IndividualCoach forceUpdateKey={updateKey} />
         <Plans />
       </main>
       <Footer onOpenAdmin={handleOpenAdmin} />

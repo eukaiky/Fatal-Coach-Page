@@ -52,7 +52,7 @@ const IndividualCoach = ({ forceUpdateKey }) => {
   const whatsappLink = `https://wa.me/5519986062412?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
-    <section id="coach-individual" className="relative overflow-hidden bg-black pt-24 pb-24 md:pt-32 md:pb-32">
+    <section id="coach-individual" className="relative overflow-hidden bg-gray-950 pt-24 pb-24 md:pt-32 md:pb-32">
       <div className="container relative z-10 mx-auto max-w-7xl px-6">
         <SectionTitle 
           title="COACH INDIVIDUAL" 
